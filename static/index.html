@@ -1,0 +1,768 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>TRACE Revision Event Labeler</title>
+    <style>
+      :root {
+        --bg: #f5f7fb;
+        --panel: #ffffff;
+        --line: #d7ddea;
+        --line-dark: #b7c2d8;
+        --text: #172033;
+        --muted: #5a657a;
+        --primary: #2d5bff;
+        --primary-dark: #2048d8;
+        --success: #178a3d;
+        --warn: #9a6700;
+        --disabled: #ebeff5;
+        --grouped: #f2f4f8;
+        --selected: #edf3ff;
+      }
+
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        font-family: Arial, Helvetica, sans-serif;
+        background: var(--bg);
+        color: var(--text);
+      }
+
+      .page {
+        max-width: 1440px;
+        margin: 0 auto;
+        padding: 20px;
+      }
+
+      .topbar {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 16px;
+        flex-wrap: wrap;
+        background: var(--panel);
+        border: 1px solid var(--line);
+        border-radius: 14px;
+        padding: 14px 16px;
+        box-shadow: 0 3px 16px rgba(20, 32, 60, 0.06);
+      }
+
+      .title-wrap h1 {
+        margin: 0;
+        font-size: 22px;
+      }
+
+      .title-wrap p {
+        margin: 6px 0 0;
+        color: var(--muted);
+        font-size: 14px;
+      }
+
+      .controls {
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+        align-items: center;
+        justify-content: flex-end;
+      }
+
+      button, .file-label {
+        border: 1px solid var(--line-dark);
+        background: #fff;
+        color: var(--text);
+        height: 40px;
+        border-radius: 10px;
+        padding: 0 14px;
+        font-size: 14px;
+        cursor: pointer;
+      }
+
+      button.primary, .file-label.primary {
+        background: var(--primary);
+        color: #fff;
+        border-color: var(--primary);
+      }
+
+      button.primary:hover, .file-label.primary:hover {
+        background: var(--primary-dark);
+      }
+
+      button:disabled {
+        cursor: not-allowed;
+        color: #8290ab;
+        background: var(--disabled);
+        border-color: #d9e0ed;
+      }
+
+      .file-input {
+        display: none;
+      }
+
+      .panel {
+        margin-top: 16px;
+        background: var(--panel);
+        border: 1px solid var(--line);
+        border-radius: 14px;
+        padding: 14px;
+        box-shadow: 0 3px 16px rgba(20, 32, 60, 0.06);
+      }
+
+      .statusbar {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 12px;
+        flex-wrap: wrap;
+        margin-bottom: 12px;
+      }
+
+      .meta {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 16px;
+        color: var(--muted);
+        font-size: 14px;
+      }
+
+      .hint {
+        color: var(--muted);
+        font-size: 13px;
+      }
+
+      .table-shell {
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        overflow: hidden;
+        background: #fff;
+      }
+
+      .table-wrap {
+        overflow: auto;
+        max-height: 66vh;
+      }
+
+      table {
+        border-collapse: collapse;
+        min-width: 1280px;
+        width: max-content;
+      }
+
+      th, td {
+        border-bottom: 1px solid #e3e8f1;
+        border-right: 1px solid #edf1f6;
+        padding: 10px 12px;
+        text-align: left;
+        vertical-align: top;
+        font-size: 14px;
+        line-height: 1.45;
+        background: #fff;
+      }
+
+      th {
+        position: sticky;
+        top: 0;
+        z-index: 3;
+        background: #f8faff;
+        font-weight: 700;
+        white-space: nowrap;
+      }
+
+      tr.grouped td {
+        background: var(--grouped);
+      }
+
+      tr.row-selected td {
+        background: var(--selected);
+      }
+
+      td.checkbox-cell, th.checkbox-cell {
+        text-align: center;
+        width: 84px;
+        min-width: 84px;
+        max-width: 84px;
+        position: sticky;
+        left: 0;
+        z-index: 2;
+        background: inherit;
+      }
+
+      th.checkbox-cell {
+        z-index: 4;
+      }
+
+      .group-badge {
+        display: inline-block;
+        padding: 3px 8px;
+        border-radius: 999px;
+        font-size: 12px;
+        background: #eaf0ff;
+        color: #2546a8;
+        border: 1px solid #cedbfd;
+      }
+
+      .checkbox-disabled {
+        opacity: 0.45;
+        cursor: not-allowed;
+      }
+
+      .footerbar {
+        display: flex;
+        justify-content: flex-end;
+        gap: 10px;
+        margin-top: 14px;
+        flex-wrap: wrap;
+      }
+
+      .empty {
+        display: grid;
+        place-items: center;
+        min-height: 300px;
+        color: var(--muted);
+        text-align: center;
+        padding: 24px;
+      }
+
+      .message {
+        padding: 10px 12px;
+        border-radius: 10px;
+        font-size: 14px;
+      }
+
+      .message.info {
+        background: #eef4ff;
+        color: #294580;
+        border: 1px solid #d9e6ff;
+      }
+
+      .message.warn {
+        background: #fff7e7;
+        color: #7a5600;
+        border: 1px solid #f3dfaa;
+      }
+
+      .message.success {
+        background: #ebfff1;
+        color: #166537;
+        border: 1px solid #c5f0d2;
+      }
+
+      .col-resizer {
+        position: absolute;
+        right: -3px;
+        top: 0;
+        height: 100%;
+        width: 6px;
+        cursor: col-resize;
+        user-select: none;
+      }
+
+      th.resizable {
+        position: sticky;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="page">
+      <div class="topbar">
+        <div class="title-wrap">
+          <h1>TRACE Revision Event Labeler</h1>
+          <p>Upload a TRACE CSV, combine adjacent rows into one revision event, and export the labeled file.</p>
+        </div>
+        <div class="controls">
+          <label class="file-label primary" for="csvFileInput">Upload a CSV File</label>
+          <input id="csvFileInput" class="file-input" type="file" accept=".csv,text/csv" />
+          <button id="combineBtn" disabled>Combine Selected</button>
+          <button id="undoBtn" disabled>Undo Combine</button>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="statusbar">
+          <div class="meta">
+            <span><strong>File:</strong> <span id="fileName">None</span></span>
+            <span><strong>Rows:</strong> <span id="rowCount">0</span></span>
+            <span><strong>Groups:</strong> <span id="groupCount">0</span></span>
+          </div>
+          <div id="messageBox" class="message info">Upload one CSV file to begin.</div>
+        </div>
+
+        <div class="table-shell">
+          <div id="tableWrap" class="table-wrap">
+            <div id="emptyState" class="empty">
+              <div>
+                <h2 style="margin-top:0;">No CSV loaded</h2>
+                <p>Use the upload button at the top of the page to open a TRACE CSV file.</p>
+              </div>
+            </div>
+            <table id="dataTable" hidden>
+              <thead>
+                <tr>
+                  <th class="checkbox-cell">Check</th>
+                  <th class="resizable" data-col="operation_id">operation_id<div class="col-resizer"></div></th>
+                  <th class="resizable" data-col="operation">operation<div class="col-resizer"></div></th>
+                  <th class="resizable" data-col="chunk_label">chunk_label<div class="col-resizer"></div></th>
+                  <th class="resizable" data-col="source">source<div class="col-resizer"></div></th>
+                  <th class="resizable" data-col="source_index">source_index<div class="col-resizer"></div></th>
+                  <th class="resizable" data-col="target">target<div class="col-resizer"></div></th>
+                  <th class="resizable" data-col="target_index">target_index<div class="col-resizer"></div></th>
+                </tr>
+              </thead>
+              <tbody id="tableBody"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="footerbar">
+          <button id="completeBtn">Complete</button>
+          <button id="exportBtn" class="primary" disabled>Export</button>
+        </div>
+        <p class="hint">Tip: select adjacent ungrouped rows with checkboxes, then use Combine Selected. Click a row to select its group, then use Undo Combine if needed.</p>
+      </div>
+    </div>
+
+    <script>
+      const requiredColumns = [
+        'operation_id',
+        'operation',
+        'chunk_label',
+        'source_chunk',
+        'source_chunk_index',
+        'source',
+        'source_index',
+        'target_chunk',
+        'target_chunk_index',
+        'target',
+        'target_index'
+      ];
+
+      const displayColumns = [
+        'operation_id',
+        'operation',
+        'chunk_label',
+        'source',
+        'source_index',
+        'target',
+        'target_index'
+      ];
+
+      const state = {
+        fileName: '',
+        baseName: '',
+        originalRows: [],
+        groups: [],
+        selectedRows: new Set(),
+        selectedGroupId: null,
+        exportReady: false,
+      };
+
+      const csvInput = document.getElementById('csvFileInput');
+      const combineBtn = document.getElementById('combineBtn');
+      const undoBtn = document.getElementById('undoBtn');
+      const completeBtn = document.getElementById('completeBtn');
+      const exportBtn = document.getElementById('exportBtn');
+      const fileNameEl = document.getElementById('fileName');
+      const rowCountEl = document.getElementById('rowCount');
+      const groupCountEl = document.getElementById('groupCount');
+      const tableEl = document.getElementById('dataTable');
+      const tableBody = document.getElementById('tableBody');
+      const emptyState = document.getElementById('emptyState');
+      const messageBox = document.getElementById('messageBox');
+
+      csvInput.addEventListener('change', async (event) => {
+        const file = event.target.files?.[0];
+        if (!file) return;
+        try {
+          const text = await file.text();
+          const rows = parseCsv(text);
+          validateColumns(rows);
+          loadFile(rows, file.name);
+          setMessage('CSV loaded successfully. You can now combine adjacent rows.', 'success');
+        } catch (error) {
+          console.error(error);
+          resetState();
+          setMessage(error.message || 'Unable to load this CSV file.', 'warn');
+          alert(error.message || 'Unable to load this CSV file.');
+        } finally {
+          csvInput.value = '';
+        }
+      });
+
+      combineBtn.addEventListener('click', () => {
+        const selected = [...state.selectedRows].sort((a, b) => a - b);
+        if (selected.length < 2) return;
+        if (!areAdjacent(selected)) {
+          alert('Only adjacent rows can be combined.');
+          return;
+        }
+        const groupIds = new Set(selected.map(rowIndexToGroupId));
+        if (groupIds.size !== selected.length) {
+          alert('Only uncombined rows can be checked and combined.');
+          return;
+        }
+        const groupIndexes = [...groupIds].map(id => state.groups.findIndex(g => g.id === id)).sort((a, b) => a - b);
+        if (!areAdjacent(groupIndexes)) {
+          alert('Only adjacent rows can be combined.');
+          return;
+        }
+        const firstGroupIdx = groupIndexes[0];
+        const mergedRows = [];
+        for (const idx of groupIndexes) {
+          mergedRows.push(...state.groups[idx].rows);
+        }
+        const newGroup = { id: cryptoRandomId(), rows: mergedRows };
+        state.groups.splice(firstGroupIdx, groupIndexes.length, newGroup);
+        state.selectedRows.clear();
+        state.selectedGroupId = newGroup.id;
+        state.exportReady = false;
+        exportBtn.disabled = true;
+        completeBtn.textContent = 'Complete';
+        render();
+        setMessage('Rows combined into one revision event.', 'success');
+      });
+
+      undoBtn.addEventListener('click', () => {
+        if (!state.selectedGroupId) return;
+        const groupIdx = state.groups.findIndex(g => g.id === state.selectedGroupId);
+        if (groupIdx === -1) return;
+        const group = state.groups[groupIdx];
+        if (group.rows.length <= 1) return;
+        const splitGroups = group.rows.map(rowIndex => ({ id: cryptoRandomId(), rows: [rowIndex] }));
+        state.groups.splice(groupIdx, 1, ...splitGroups);
+        state.selectedGroupId = null;
+        state.selectedRows.clear();
+        state.exportReady = false;
+        exportBtn.disabled = true;
+        completeBtn.textContent = 'Complete';
+        render();
+        setMessage('Combined event was undone and labels were recomputed.', 'success');
+      });
+
+      completeBtn.addEventListener('click', () => {
+        if (!state.originalRows.length) {
+          alert('Please upload a CSV file first.');
+          return;
+        }
+        const ok = confirm('Have you checked all rows?');
+        if (!ok) return;
+        state.exportReady = true;
+        exportBtn.disabled = false;
+        completeBtn.textContent = 'Complete';
+        setMessage('Review marked complete. You can now export the labeled CSV.', 'success');
+      });
+
+      exportBtn.addEventListener('click', async () => {
+        if (!state.exportReady) return;
+        const csv = buildExportCsv();
+        const exportName = `${state.baseName}_event_label.csv`;
+        await downloadCsv(csv, exportName);
+        setMessage('CSV exported successfully.', 'success');
+      });
+
+      function loadFile(rows, filename) {
+        state.fileName = filename;
+        state.baseName = filename.replace(/\.[^.]+$/, '');
+        state.originalRows = rows.map((row, index) => ({ ...row, __rowIndex: index }));
+        state.groups = state.originalRows.map((row, index) => ({ id: cryptoRandomId(), rows: [index] }));
+        state.selectedRows.clear();
+        state.selectedGroupId = null;
+        state.exportReady = false;
+        exportBtn.disabled = true;
+        completeBtn.textContent = 'Complete';
+        render();
+      }
+
+      function resetState() {
+        state.fileName = '';
+        state.baseName = '';
+        state.originalRows = [];
+        state.groups = [];
+        state.selectedRows.clear();
+        state.selectedGroupId = null;
+        state.exportReady = false;
+        exportBtn.disabled = true;
+        completeBtn.textContent = 'Complete';
+        render();
+      }
+
+      function render() {
+        fileNameEl.textContent = state.fileName || 'None';
+        rowCountEl.textContent = String(state.originalRows.length || 0);
+        groupCountEl.textContent = String(state.groups.length || 0);
+
+        if (!state.originalRows.length) {
+          tableEl.hidden = true;
+          emptyState.hidden = false;
+          combineBtn.disabled = true;
+          undoBtn.disabled = true;
+          tableBody.innerHTML = '';
+          return;
+        }
+
+        tableEl.hidden = false;
+        emptyState.hidden = true;
+
+        const groupMap = buildRowToGroupMap();
+        const labels = computeRevisionLabels();
+        tableBody.innerHTML = '';
+
+        state.originalRows.forEach((row, rowIndex) => {
+          const groupId = groupMap.get(rowIndex);
+          const group = state.groups.find(g => g.id === groupId);
+          const isGrouped = group.rows.length > 1;
+          const isSelectedGroup = state.selectedGroupId === groupId;
+          const tr = document.createElement('tr');
+          if (isGrouped) tr.classList.add('grouped');
+          if (isSelectedGroup) tr.classList.add('row-selected');
+          tr.addEventListener('click', (event) => {
+            if (event.target.closest('input[type="checkbox"]')) return;
+            state.selectedGroupId = groupId;
+            renderControlState();
+            render();
+          });
+
+          const checkTd = document.createElement('td');
+          checkTd.className = 'checkbox-cell';
+          if (isGrouped) {
+            const badge = document.createElement('span');
+            badge.className = 'group-badge';
+            badge.textContent = labels[rowIndex];
+            checkTd.appendChild(badge);
+          } else {
+            const checkbox = document.createElement('input');
+            checkbox.type = 'checkbox';
+            checkbox.checked = state.selectedRows.has(rowIndex);
+            checkbox.addEventListener('click', (event) => event.stopPropagation());
+            checkbox.addEventListener('change', (event) => {
+              if (event.target.checked) state.selectedRows.add(rowIndex);
+              else state.selectedRows.delete(rowIndex);
+              state.selectedGroupId = null;
+              renderControlState();
+            });
+            checkTd.appendChild(checkbox);
+          }
+          tr.appendChild(checkTd);
+
+          displayColumns.forEach((col) => {
+            const td = document.createElement('td');
+            td.textContent = row[col] ?? '';
+            tr.appendChild(td);
+          });
+
+          tableBody.appendChild(tr);
+        });
+
+        renderControlState();
+      }
+
+      function renderControlState() {
+        const selected = [...state.selectedRows].sort((a, b) => a - b);
+        combineBtn.disabled = !(selected.length >= 2 && areAdjacent(selected));
+        const selectedGroup = state.groups.find(g => g.id === state.selectedGroupId);
+        undoBtn.disabled = !(selectedGroup && selectedGroup.rows.length > 1);
+      }
+
+      function buildRowToGroupMap() {
+        const map = new Map();
+        for (const group of state.groups) {
+          for (const rowIndex of group.rows) {
+            map.set(rowIndex, group.id);
+          }
+        }
+        return map;
+      }
+
+      function rowIndexToGroupId(rowIndex) {
+        const group = state.groups.find(g => g.rows.includes(rowIndex));
+        return group?.id ?? null;
+      }
+
+      function computeRevisionLabels() {
+        const labels = {};
+        state.groups.forEach((group, idx) => {
+          const label = `event_${idx + 1}`;
+          group.rows.forEach(rowIndex => {
+            labels[rowIndex] = label;
+          });
+        });
+        return labels;
+      }
+
+      function buildExportCsv() {
+        const labels = computeRevisionLabels();
+        const headers = [...requiredColumns, 'revision_event_label'];
+        const lines = [headers.join(',')];
+
+        state.originalRows.forEach((row, idx) => {
+          const out = headers.map((header) => escapeCsvValue(header === 'revision_event_label' ? labels[idx] : row[header] ?? ''));
+          lines.push(out.join(','));
+        });
+
+        return lines.join('\r\n');
+      }
+
+      async function downloadCsv(csvText, filename) {
+        if ('showSaveFilePicker' in window) {
+          try {
+            const handle = await window.showSaveFilePicker({
+              suggestedName: filename,
+              types: [{
+                description: 'CSV file',
+                accept: { 'text/csv': ['.csv'] },
+              }],
+            });
+            const writable = await handle.createWritable();
+            await writable.write(csvText);
+            await writable.close();
+            return;
+          } catch (error) {
+            if (error?.name !== 'AbortError') {
+              console.warn('Falling back to browser download.', error);
+            } else {
+              return;
+            }
+          }
+        }
+
+        const blob = new Blob([csvText], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        URL.revokeObjectURL(url);
+      }
+
+      function setMessage(text, type = 'info') {
+        messageBox.textContent = text;
+        messageBox.className = `message ${type}`;
+      }
+
+      function validateColumns(rows) {
+        if (!rows.length) {
+          throw new Error('The CSV file appears to be empty.');
+        }
+        const headerSet = new Set(Object.keys(rows[0]));
+        const missing = requiredColumns.filter(col => !headerSet.has(col));
+        if (missing.length) {
+          throw new Error(`Missing required columns: ${missing.join(', ')}`);
+        }
+      }
+
+      function areAdjacent(numbers) {
+        if (numbers.length <= 1) return true;
+        for (let i = 1; i < numbers.length; i += 1) {
+          if (numbers[i] !== numbers[i - 1] + 1) return false;
+        }
+        return true;
+      }
+
+      function escapeCsvValue(value) {
+        const str = String(value ?? '');
+        if (/[",\n\r]/.test(str)) {
+          return `"${str.replace(/"/g, '""')}"`;
+        }
+        return str;
+      }
+
+      function cryptoRandomId() {
+        if (window.crypto?.randomUUID) return window.crypto.randomUUID();
+        return `id_${Date.now()}_${Math.random().toString(16).slice(2)}`;
+      }
+
+      function parseCsv(text) {
+        const rows = [];
+        let row = [];
+        let cell = '';
+        let inQuotes = false;
+
+        for (let i = 0; i < text.length; i += 1) {
+          const char = text[i];
+          const next = text[i + 1];
+
+          if (inQuotes) {
+            if (char === '"' && next === '"') {
+              cell += '"';
+              i += 1;
+            } else if (char === '"') {
+              inQuotes = false;
+            } else {
+              cell += char;
+            }
+          } else {
+            if (char === '"') {
+              inQuotes = true;
+            } else if (char === ',') {
+              row.push(cell);
+              cell = '';
+            } else if (char === '\n') {
+              row.push(cell);
+              rows.push(row);
+              row = [];
+              cell = '';
+            } else if (char === '\r') {
+              continue;
+            } else {
+              cell += char;
+            }
+          }
+        }
+
+        if (cell.length > 0 || row.length > 0) {
+          row.push(cell);
+          rows.push(row);
+        }
+
+        if (!rows.length) return [];
+        const headers = rows[0].map(h => h.trim());
+        const dataRows = rows.slice(1).filter(r => r.some(cell => String(cell).trim() !== ''));
+        return dataRows.map((r) => {
+          const obj = {};
+          headers.forEach((header, idx) => {
+            obj[header] = r[idx] ?? '';
+          });
+          return obj;
+        });
+      }
+
+      (function initColumnResize() {
+        let currentTh = null;
+        let startX = 0;
+        let startWidth = 0;
+
+        document.querySelectorAll('.col-resizer').forEach((handle) => {
+          handle.addEventListener('mousedown', (event) => {
+            currentTh = event.target.parentElement;
+            startX = event.pageX;
+            startWidth = currentTh.offsetWidth;
+            document.addEventListener('mousemove', onMouseMove);
+            document.addEventListener('mouseup', onMouseUp);
+            event.preventDefault();
+          });
+        });
+
+        function onMouseMove(event) {
+          if (!currentTh) return;
+          const width = Math.max(90, startWidth + (event.pageX - startX));
+          currentTh.style.width = `${width}px`;
+          currentTh.style.minWidth = `${width}px`;
+          currentTh.style.maxWidth = `${width}px`;
+          const colIndex = Array.from(currentTh.parentElement.children).indexOf(currentTh) + 1;
+          document.querySelectorAll(`#dataTable tr > *:nth-child(${colIndex})`).forEach((cell) => {
+            cell.style.width = `${width}px`;
+            cell.style.minWidth = `${width}px`;
+            cell.style.maxWidth = `${width}px`;
+          });
+        }
+
+        function onMouseUp() {
+          document.removeEventListener('mousemove', onMouseMove);
+          document.removeEventListener('mouseup', onMouseUp);
+          currentTh = null;
+        }
+      })();
+    </script>
+  </body>
+</html>

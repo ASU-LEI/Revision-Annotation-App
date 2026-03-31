@@ -5,7 +5,7 @@ A Heroku-ready FastAPI web app for reviewing TRACE CSV output and assigning `rev
 ## Features
 
 - Upload one TRACE CSV at a time
-- Display selected columns only:
+- Display selected columns:
   - `operation_id`
   - `operation`
   - `chunk_label`
@@ -30,15 +30,4 @@ uvicorn app:app --reload
 
 Open `http://127.0.0.1:8000`
 
-## Heroku deployment
 
-This app is ready for a standard Python deployment on Heroku.
-
-Core files included:
-- `Procfile`
-- `requirements.txt`
-- `runtime.txt`
-
-## Notes
-
-Modern browsers do not let normal web pages force a download into an arbitrary folder. This app uses the browser download flow, and when supported it will try to use the File System Access API so the user can choose a save location more directly.

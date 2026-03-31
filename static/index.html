@@ -78,10 +78,15 @@
         cursor: pointer;
       }
 
-      button.primary, .file-label.primary {
+      button.primary,
+      .file-label.primary {
         background: var(--primary);
         color: #fff;
         border-color: var(--primary);
+
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
       }
 
       button.primary:hover, .file-label.primary:hover {
@@ -144,8 +149,9 @@
 
       table {
         border-collapse: collapse;
+        table-layout: fixed;
+        width: 100%;
         min-width: 1280px;
-        width: max-content;
       }
 
       th, td {
@@ -157,6 +163,9 @@
         font-size: 14px;
         line-height: 1.45;
         background: #fff;
+        white-space: normal;
+        overflow-wrap: anywhere;
+        word-break: break-word;
       }
 
       th {
@@ -267,7 +276,7 @@
       <div class="topbar">
         <div class="title-wrap">
           <h1>TRACE Revision Event Labeler</h1>
-          <p>Upload a TRACE CSV, combine adjacent rows into one revision event, and export the labeled file.</p>
+          <p>Upload a TRACE CSV file, combine adjacent rows into one revision event, and export the labeled file.</p>
         </div>
         <div class="controls">
           <label class="file-label primary" for="csvFileInput">Upload a CSV File</label>

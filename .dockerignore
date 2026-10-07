@@ -1,0 +1,28 @@
+.git/
+.github/
+.venv/
+.terraform/
+__pycache__/
+*.pyc
+
+# Local secrets and Terraform inputs/state
+.env
+.env.*
+!.env.example
+*.tfvars
+*.tfvars.json
+*.tfstate
+*.tfstate.*
+*.tfplan
+crash.log
+infra/
+
+# Non-runtime files
+Procfile
+README.md
+LICENSE
+*.log
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.DS_Store

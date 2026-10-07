@@ -1,0 +1,22 @@
+# Lean deployment values for the TRACE Revision Event Labeler.
+# Copy the real values (from the other lean apps) into the TFVARS GitHub
+# environment secret; do not commit a populated tfvars file.
+
+aws_region   = "us-west-2"
+project_name = "revision-annotation-app"
+environment  = "lean"
+
+# Backend routing on the shared lean ALB
+backend_domain_name = "revision-annotation-app.example.edu"
+hosted_zone_name    = "example.edu"
+
+# Shared lean infrastructure
+existing_vpc_id             = "vpc-xxxxxxxxxxxxxxxxx"
+existing_private_subnet_ids = ["subnet-xxxxxxxxxxxxxxxxx", "subnet-yyyyyyyyyyyyyyyyy"]
+existing_ecs_cluster_name   = "lei-lean-cluster"
+ecs_security_group_id       = "sg-xxxxxxxxxxxxxxxxx"
+existing_alb_arn            = "arn:aws:elasticloadbalancing:us-west-2:123456789012:loadbalancer/app/lei-lean-alb/xxxxxxxxxxxxxxxx"
+
+# Must be unique on the shared HTTPS listener. 52-57, 60, 210 and 220 are
+# already used by other apps; confirm 61 is free before the first apply.
+listener_rule_priority = 61

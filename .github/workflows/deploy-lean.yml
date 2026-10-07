@@ -1,0 +1,158 @@
+name: Build and deploy to ECS
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: deploy-lean
+  cancel-in-progress: false
+
+env:
+  AWS_REGION: us-west-2
+  TF_IN_AUTOMATION: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: lean
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Configure AWS credentials with OIDC
+        uses: aws-actions/configure-aws-credentials@v6
+        with:
+          aws-region: ${{ env.AWS_REGION }}
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+
+      - name: Load Terraform variables from environment secret
+        env:
+          TFVARS: ${{ secrets.TFVARS }}
+        run: |
+          test -n "$TFVARS"
+          printf '%s\n' "$TFVARS" > infra/lean.auto.tfvars
+
+      - name: Ensure ECR repository exists with AWS CLI
+        shell: bash
+        run: |
+          set -euo pipefail
+          read_tfvar() {
+            awk -F= -v key="$1" '
+              $1 ~ "^[[:space:]]*" key "[[:space:]]*$" {
+                value = $2
+                sub(/^[[:space:]]*/, "", value)
+                sub(/[[:space:]]*$/, "", value)
+                gsub(/^"|"$/, "", value)
+                print value
+                exit
+              }
+            ' infra/lean.auto.tfvars
+          }
+
+          PROJECT_NAME="$(read_tfvar project_name)"
+          ENVIRONMENT="$(read_tfvar environment)"
+          : "${PROJECT_NAME:?TFVARS must define project_name}"
+          : "${ENVIRONMENT:?TFVARS must define environment}"
+          echo "Checking ECR repository: $PROJECT_NAME"
+
+          if aws ecr describe-repositories \
+            --region "$AWS_REGION" \
+            --cli-connect-timeout 10 \
+            --cli-read-timeout 30 \
+            --repository-names "$PROJECT_NAME" \
+            --query 'repositories[0].repositoryArn' \
+            --output text >/tmp/ecr_repository_arn; then
+            echo "ECR repository already exists."
+          else
+            echo "Creating ECR repository with AWS CLI..."
+            aws ecr create-repository \
+              --region "$AWS_REGION" \
+              --repository-name "$PROJECT_NAME" \
+              --image-tag-mutability IMMUTABLE \
+              --image-scanning-configuration scanOnPush=true \
+              --tags \
+                Key=Project,Value="$PROJECT_NAME" \
+                Key=Environment,Value="$ENVIRONMENT" \
+                Key=ManagedBy,Value=terraform \
+              --query 'repository.repositoryArn' \
+              --output text >/tmp/ecr_repository_arn
+          fi
+
+          ECR_REPOSITORY_ARN="$(cat /tmp/ecr_repository_arn)"
+          aws ecr tag-resource \
+            --region "$AWS_REGION" \
+            --resource-arn "$ECR_REPOSITORY_ARN" \
+            --tags \
+              Key=Project,Value="$PROJECT_NAME" \
+              Key=Environment,Value="$ENVIRONMENT" \
+              Key=ManagedBy,Value=terraform
+
+      - name: Read ECR repository URL
+        id: ecr_repository
+        run: |
+          PROJECT_NAME="$(awk -F= '/^[[:space:]]*project_name[[:space:]]*=/{gsub(/[[:space:]\"]/, "", $2); print $2; exit}' infra/lean.auto.tfvars)"
+          ECR_REPOSITORY_URL="$(aws ecr describe-repositories \
+            --region "$AWS_REGION" \
+            --repository-names "$PROJECT_NAME" \
+            --query 'repositories[0].repositoryUri' \
+            --output text)"
+          echo "url=$ECR_REPOSITORY_URL" >> "$GITHUB_OUTPUT"
+
+      - name: Log in to Amazon ECR
+        id: ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build and push immutable image
+        run: |
+          set -euo pipefail
+          ECR_REPOSITORY_URL="${{ steps.ecr_repository.outputs.url }}"
+          ECR_REPOSITORY_NAME="${ECR_REPOSITORY_URL##*/}"
+          IMAGE_URI="$ECR_REPOSITORY_URL:${GITHUB_SHA}"
+          if aws ecr describe-images \
+            --region "$AWS_REGION" \
+            --cli-connect-timeout 10 \
+            --cli-read-timeout 30 \
+            --repository-name "$ECR_REPOSITORY_NAME" \
+            --image-ids imageTag="$GITHUB_SHA" >/dev/null 2>&1; then
+            echo "Image tag $GITHUB_SHA already exists; reusing it."
+          else
+            docker build --tag "$IMAGE_URI" .
+            docker push "$IMAGE_URI"
+          fi
+          echo "IMAGE_URI=$IMAGE_URI" >> "$GITHUB_ENV"
+
+      - name: Set up Terraform
+        uses: hashicorp/setup-terraform@v4
+
+      - name: Check Terraform formatting
+        run: terraform fmt -check infra/*.tf
+
+      - name: Initialize Terraform backend
+        run: terraform -chdir=infra init -backend-config=backend.lean.hcl
+
+      - name: Validate Terraform
+        run: terraform -chdir=infra validate
+
+      - name: Apply infrastructure and deploy image
+        env:
+          TF_VAR_container_image: ${{ env.IMAGE_URI }}
+        run: terraform -chdir=infra apply -auto-approve -lock-timeout=5m
+
+      - name: Wait for ECS service stability
+        run: |
+          aws ecs wait services-stable \
+            --cluster "$(terraform -chdir=infra output -raw ecs_cluster_name)" \
+            --services "$(terraform -chdir=infra output -raw ecs_service_name)"
+
+      - name: Print deployment URL
+        run: terraform -chdir=infra output load_balancer_url
+
+      - name: Remove temporary Terraform variables
+        if: always()
+        run: rm -f infra/lean.auto.tfvars

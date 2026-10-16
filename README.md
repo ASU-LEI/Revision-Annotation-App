@@ -1,4 +1,13 @@
-# TRACE Revision Event Labeler
+# Project: TRACE Revision Event Labeler
+
+**Maintainers / Point of Contact:** [@terryyutian](https://github.com/terryyutian) [@msing145](https://github.com/msing145)
+
+<!-- Required: what this project does / houses. Bullet points preferred. -->
+- FastAPI web app for reviewing TRACE CSV output and labeling revision events
+<!-- Optional: any other notes. Delete if not needed. -->
+- Public fork
+
+---
 
 A Heroku-ready FastAPI web app for reviewing TRACE CSV output and assigning `revision_event_label` values by combining adjacent rows into one revision event.
 
